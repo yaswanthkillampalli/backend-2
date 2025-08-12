@@ -56,15 +56,38 @@ app.post('/add', async (request, response) => {
   }
 });
 
+// MODIFIED GET ROUTE
 app.get('/get', async (request, response) => {
   try {
-    const query = `
-      SELECT * FROM routes;
-    `;
-    const locations = await db.all(query);
+    const queryParams = request.query;
+    const paramKeys = Object.keys(queryParams);
+
+    // Base query
+    let query = 'SELECT * FROM routes';
+    const values = [];
+
+    // If query parameters exist, build a WHERE clause
+    if (paramKeys.length > 0) {
+      const conditions = paramKeys.map(key => {
+        // Check if the key is a valid column to prevent SQL injection
+        const validColumns = ['route_no', 'name', 'direction', 'stopPresent', 'id'];
+        if (!validColumns.includes(key)) {
+            // This check is an extra layer of security
+            throw new Error(`Invalid query parameter: ${key}`);
+        }
+        values.push(queryParams[key]);
+        return `${key} = ?`;
+      });
+
+      query += ` WHERE ${conditions.join(' AND ')}`;
+    }
+
+    query += ';';
+
+    // Execute the dynamically built query
+    const locations = await db.all(query, values);
     response.status(200).json(locations);
   } catch (error) {
     response.status(500).send(`Error fetching locations: ${error.message}`);
   }
 });
-
